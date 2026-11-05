@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "check": "node ../scripts/check-templates.mjs",
+    "check": "node scripts/check-templates.mjs",
     "build": "npm run check && next build",
     "start": "npx serve out"
   },
