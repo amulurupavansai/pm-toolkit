@@ -7,9 +7,9 @@
 <meta name="description" content="Make a statutory payroll report cookbook in three steps with Claude.ai.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
-/* Layout: one narrow column of three numbered steps, each a card; result preview below. */
+/* Layout: one narrow column of three numbered steps, each a card; readable result preview below. */
 :root{
   --bg:#f3f5f7; --panel:#fff; --ink:#18232e; --muted:#5b6977; --line:#d8dee4; --line2:#b8c2cb;
   --accent:#1f5f8b; --accent-ink:#fff; --accent-soft:#e3eef6;
@@ -22,7 +22,8 @@
   --ok:#6cc58f; --ok-soft:#173326; --warn:#e2b54a; --warn-soft:#3a2f12; --bad:#ec8576; --bad-soft:#3d1f1b; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
-.wrap{max-width:860px;margin:0 auto;padding:28px 16px 64px;display:flex;flex-direction:column;gap:18px}
+.wrap{max-width:900px;margin:0 auto;padding:28px 16px 64px;display:flex;flex-direction:column;gap:18px}
+.wide{max-width:1280px;margin:0 auto;padding:0 16px 48px}
 header h1{font-family:var(--display);font-weight:800;font-size:clamp(26px,4vw,34px);margin:0;letter-spacing:-.015em}
 header p{margin:6px 0 0;color:var(--muted);max-width:62ch}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
@@ -49,12 +50,14 @@ textarea{resize:vertical;font-family:var(--mono);font-size:13px}
 .how b{color:var(--ink)}
 details{border-top:1px solid var(--line);padding-top:12px}
 summary{cursor:pointer;font-weight:700;color:var(--accent)}
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-height:420px}
-table{border-collapse:collapse;width:100%;font-size:13.5px}
-th{position:sticky;top:0;background:var(--bg);text-align:left;padding:7px 9px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line2);white-space:nowrap}
-td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
-td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
-.issue{color:var(--bad);font-size:12.5px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-height:640px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:980px}
+th{position:sticky;top:0;background:var(--accent);color:var(--accent-ink);text-align:left;padding:9px 10px;font-size:13px;white-space:nowrap;z-index:1}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.sec td{background:var(--accent-soft);font-weight:700}
+td.h b{display:block} td.h span{color:var(--muted);font-size:13px}
+td.c{font-family:var(--mono);font-size:12.5px}
+td.chk{color:var(--warn);font-size:13px}
 .foot{color:var(--muted);font-size:13.5px;text-align:center}
 .foot a{color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:15px;max-width:calc(100vw - 32px)}
@@ -64,7 +67,7 @@ td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
 <div class="wrap">
   <header>
     <h1>Cookbook Maker</h1>
-    <p>Make a cookbook for any statutory payroll report, in the same Excel layout as the Greece APD cookbook. Claude.ai does the research; this page builds the Excel.</p>
+    <p>Make a simple cookbook for any statutory payroll report: what each header means, where the data comes from, and how to fill it. Claude.ai does the research; this page builds the Excel.</p>
   </header>
 
   <section class="card" id="s1">
@@ -79,10 +82,10 @@ td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
       <summary>Optional: add a sample report or your payroll field list (better results)</summary>
       <div class="grid" style="margin-top:12px">
         <label>Sample report or template (.xlsx / .csv)<small>Only the column headers are read. No employee data leaves your computer.</small><input type="file" id="sampleFile" accept=".xlsx,.xls,.csv"></label>
-        <label>Payroll data dump / field list (.xlsx / .csv)<small>Only the column names are read, so Claude can map headers to your fields.</small><input type="file" id="dumpFile" accept=".xlsx,.xls,.csv"></label>
+        <label>Payroll data dump / field list (.xlsx / .csv)<small>Only the column names are read, so Claude can map headers to your field codes.</small><input type="file" id="dumpFile" accept=".xlsx,.xls,.csv"></label>
       </div>
       <p class="sub" id="fileInfo" style="margin-top:10px"></p>
-      <p class="sub">Have the official guide as a PDF? Attach it in Claude.ai together with the prompt in step 2.</p>
+      <p class="sub">Have the official guide as a PDF? Attach it in Claude.ai together with the request in step 2. This gives the most accurate logic.</p>
     </details>
   </section>
 
@@ -90,7 +93,7 @@ td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
     <div class="sh"><span class="num">2</span><div><h2>Ask Claude.ai</h2><p class="sub">This copies a ready-made request. You don't need to write anything.</p></div></div>
     <ol class="how">
       <li>Click <b>Copy for Claude</b>.</li>
-      <li>Open <b>claude.ai</b>, start a new chat, and paste (Ctrl+V). If web search is available, turn it on.</li>
+      <li>Open <b>claude.ai</b>, start a new chat, and paste (Ctrl+V). Turn on web search if you have it, or attach the official guide (PDF).</li>
       <li>Wait for Claude to finish. If it says <b>“Type continue”</b>, type <b>continue</b> until it says it's done.</li>
     </ol>
     <div class="row"><button class="btn primary" id="copyBtn" type="button" disabled>Copy for Claude</button><span class="sub" id="copyNote">Fill in country and report name first.</span></div>
@@ -102,11 +105,9 @@ td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
     <div id="result"></div>
     <div class="row"><button class="btn primary" id="dlBtn" type="button" disabled>Download cookbook (.xlsx)</button></div>
   </section>
-
-  <section id="preview"></section>
-
-  <p class="foot">Nothing is stored on a server. Need to edit a cookbook field by field? Use the <a href="advanced.html">advanced editor</a>.</p>
 </div>
+<section class="wide" id="preview"></section>
+<p class="foot">Nothing is stored on a server. Need to edit a cookbook field by field? Use the <a href="advanced.html">advanced editor</a>.</p>
 
 <script>
 "use strict";
@@ -119,7 +120,6 @@ const ST={headers:[],headerSrc:"",dump:[],dumpSrc:"",data:null};
 const KEEP=["country","report","authority","freq"];
 try{KEEP.forEach(k=>{const v=localStorage.getItem("cm:"+k);if(v)$("#"+k).value=v;});}catch(e){}
 function keep(){try{KEEP.forEach(k=>localStorage.setItem("cm:"+k,$("#"+k).value));}catch(e){}}
-
 function ready(){const ok=$("#country").value.trim()&&$("#report").value.trim();$("#copyBtn").disabled=!ok;$("#copyNote").textContent=ok?"Then paste it into claude.ai.":"Fill in country and report name first.";}
 KEEP.forEach(k=>$("#"+k).addEventListener("input",()=>{keep();ready();}));ready();
 
@@ -135,40 +135,48 @@ function fileInfo(){const p=[];if(ST.headers.length)p.push(`Sample report: ${ST.
 $("#sampleFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{ST.headers=await readHeaders(f);ST.headerSrc=f.name;}catch(_){ST.headers=[];toast("Could not read that file");}fileInfo();};
 $("#dumpFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const h=await readHeaders(f);ST.dump=[...new Set(h.flatMap(s=>s.headers))];ST.dumpSrc=f.name;}catch(_){ST.dump=[];toast("Could not read that file");}fileInfo();};
 
-/* step 2: build the prompt */
+/* step 2: the request for Claude.ai */
 function prompt(){
   const v=k=>$("#"+k).value.trim();
-  const hdr=ST.headers.length?ST.headers.map(s=>`Sheet/section "${s.sheet}":\n`+s.headers.map((h,i)=>`  ${i+1}. ${h}`).join("\n")).join("\n"):"(none provided: find the official template, file specification or lodgement form and use its headers, in order, including every record type / section)";
-  const dump=ST.dump.length?ST.dump.join(", "):"(none provided: leave table/code/name empty unless the source is obviously a constant, then use table \"Static\")";
-  return `You are a payroll compliance research analyst. Build a "report cookbook" for a statutory payroll report: one entry per report header (field) explaining exactly how a payroll processor fills it.
+  const hdr=ST.headers.length?ST.headers.map(s=>`Sheet/section "${s.sheet}":\n`+s.headers.map((h,i)=>`  ${i+1}. ${h}`).join("\n")).join("\n"):"(not provided: find the official template / file specification / lodgement form and use its headers in the official order, including every section or record type)";
+  const dump=ST.dump.length?ST.dump.join(", "):"(not provided: leave \"code\" empty)";
+  return `You are helping a payroll processor build a simple "report cookbook": for each header (column/field) of a statutory payroll report, what it means, where the data comes from in payroll, and how to fill it.
 
 REPORT
 - Country / state: ${v("country")}
 - Report: ${v("report")}
 - Government body: ${v("authority")||"(find it)"}
-- Filing frequency: ${v("freq")}
+- Filed: ${v("freq")}
 
-HEADERS
+HEADERS OF THE REPORT
 ${hdr}
 
-OUR PAYROLL FIELD NAMES (use these for mapping where they fit)
+OUR PAYROLL FIELD CODES (choose from these for "code" when one clearly fits; never invent codes)
 ${dump}
 
-RESEARCH
-- Use official sources first (the government body's website, the official file specification / lodgement guide, legislation). Use web search if you have it. If I attached a PDF guide, use it.
-- Take every header in the official order. If the report has several record types or sections, cover all of them and put the section name in "section".
-- Never invent codes, rates, lengths or thresholds. If you cannot confirm something, leave it empty or say so in "logic", and set "confidence" to "Low".
-- Never include real company or employee data. Example values must be made-up placeholders.
+HOW TO WRITE EACH ENTRY (keep it short and simple, like explaining to a new payroll processor)
+- "meaning": 1–2 plain sentences: what this header is.
+- "mapping": where the value comes from in payroll, in plain words (e.g. "Employee master – Tax ID", "Payroll results – income tax withheld this period", "Company settings", "Fixed value").
+- "logic": how to fill it, max 3 short sentences.
+  * If payroll already calculates the amount (income tax withheld, social security contributions, net pay, etc.), the logic is WHICH payroll result to report, for which period, and any sign/rounding rule. Do NOT explain how to calculate the tax itself, and do NOT quote tax rates or brackets.
+  * Only state rules you can confirm from the official guide. If you are not sure, write the logic you think is right AND explain what to confirm in "check".
+- "mandatory": "Yes", "No", or "Only if …" (state the condition).
+- "format": plain words, e.g. "Number, 10 digits", "Amount, 2 decimals", "Text, max 50", "Date DDMMYYYY", "Code: 01 or 04".
+- "length": number of characters if the report has fixed lengths, otherwise null.
+- "example": a made-up example (never real people or companies).
+- "check": empty if you are confident; otherwise what the processor must confirm, in one sentence.
+- "source": official URL and section/page you used.
 
-OUTPUT FORMAT (important: a web page reads this automatically)
-Reply with a JSON code block only, in exactly this shape:
+RULES
+- Use official sources first (the government body's site, the official file specification, legislation). Use web search if available, and any PDF I attached.
+- Keep every header, in the official order. Put the section / record type name in "section".
+- Never invent codes, rates, lengths or thresholds.
+
+OUTPUT (a web page reads this automatically): reply with ONE JSON code block only:
 \`\`\`json
-{"fields":[{"local":"header exactly as in the report (local language)","english":"English name","section":"record type / section / sheet","mand":"Mandatory | Optional | Conditional","purpose":"plain-English meaning","length":10,"format":"e.g. 9(10), X(50), 99999999V99, DDMMYYYY","example":"made-up example","table":"payroll source table or Static","code":"field code","name":"field name","values":"allowed values / codes","logic":"how to calculate or fill it, incl. rules, rates, conditions","confidence":"High | Medium | Low","source":"official URL + section"}],
- "components":[{"code":"pay / earnings type code","base":"base earnings field","ee":"employee contribution field","er":"employer contribution field","source":"table"}],
- "done":true}
+{"fields":[{"section":"","header":"exactly as in the report","english":"","meaning":"","mapping":"","code":"","logic":"","mandatory":"","format":"","length":null,"example":"","check":"","source":""}],"done":true}
 \`\`\`
-Use "length": null when there is no fixed length. "components" lists pay or earnings types the report breaks amounts into (empty list if none).
-If the answer will be too long for one message, stop after a complete field, set "done": false, and end with the line: Type continue. When I type continue, send the next JSON block with the remaining fields only (same shape), until "done": true.`;
+If the answer is too long for one message, stop after a complete field, set "done": false and end with the line: Type continue. When I type continue, send the next JSON block with the remaining fields only, until "done": true.`;
 }
 $("#copyBtn").onclick=async()=>{const t=prompt();try{await navigator.clipboard.writeText(t);toast("Copied. Now paste it into claude.ai");}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.append(ta);ta.select();try{document.execCommand("copy");toast("Copied. Now paste it into claude.ai");}catch(_){toast("Press Ctrl+C to copy");}setTimeout(()=>ta.remove(),5000);}
   $("#s1").classList.add("done");$("#s2").classList.add("done");};
@@ -176,57 +184,62 @@ $("#copyBtn").onclick=async()=>{const t=prompt();try{await navigator.clipboard.w
 /* step 3: read Claude's answer (one or several JSON blocks) */
 function blocks(text){
   const out=[];const fences=[...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map(m=>m[1]);
-  const cands=fences.length?fences:[text];
-  for(const c of cands){let s=c.trim();try{out.push(JSON.parse(s));continue;}catch(_){}
+  for(const c of (fences.length?fences:[text])){const s=c.trim();try{out.push(JSON.parse(s));continue;}catch(_){}
     const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a){try{out.push(JSON.parse(s.slice(a,b+1)));continue;}catch(_){}}
     const a2=s.indexOf("["),b2=s.lastIndexOf("]");if(a2>=0&&b2>a2){try{out.push({fields:JSON.parse(s.slice(a2,b2+1))});}catch(_){}}}
   return out;
 }
-function fmtLen(fmt){if(!fmt)return null;let f=String(fmt).toUpperCase().replace(/\s+/g,"");
-  if(/^(DDMMYYYY|YYYYMMDD|MMDDYYYY|ΗΗΜΜΕΕΕΕ|DD\/MM\/YYYY|YYYY-MM-DD|DD-MM-YYYY|DD\.MM\.YYYY)$/.test(f))return f.length;
-  f=f.replace(/V/g,"");let t=0,used=0,m;const rx=/([9AXΑΧ])(?:\((\d+)\))?/g;while((m=rx.exec(f))){t+=m[2]?+m[2]:1;used+=m[0].length;}return used&&used===f.length?t:null;}
-function issues(f){const out=[],L=parseInt(f.length,10),fl=fmtLen(f.format);
-  if(Number.isFinite(L)&&fl!==null&&fl!==L)out.push(`Format ${f.format} is ${fl} characters but length is ${L}`);
-  if(f.example&&Number.isFinite(L)&&String(f.example).length>L)out.push(`Example longer than length ${L}`);
-  if(!f.purpose)out.push("No description");
-  if(String(f.confidence).toLowerCase()==="low")out.push("Low confidence: check the official guide");
-  return out;}
+/* accept older key names too */
+const norm=f=>({section:f.section||"",header:f.header||f.local||"",english:f.english||"",meaning:f.meaning||f.purpose||"",mapping:f.mapping||[f.table,f.name].filter(Boolean).join(" – "),code:f.code||"",logic:f.logic||"",mandatory:f.mandatory||f.mand||"",format:f.format||"",length:f.length??null,example:f.example||"",check:f.check||(String(f.confidence).toLowerCase()==="low"?"Low confidence – confirm in the official guide.":""),source:f.source||f.reference||""});
 function parseReply(){
-  const bl=blocks($("#reply").value);const fields=[],comps=[];let done=null;
-  for(const b of bl){if(Array.isArray(b.fields))fields.push(...b.fields.filter(x=>x&&typeof x==="object"));if(Array.isArray(b.components))comps.push(...b.components);if(typeof b.done==="boolean")done=b.done;}
-  const seen=new Set();const uniq=fields.filter(f=>{const k=(f.section||"")+"|"+(f.local||f.english||"");if(seen.has(k))return false;seen.add(k);return true;});
-  ST.data={fields:uniq,components:comps,done};
+  const bl=blocks($("#reply").value);let fields=[],done=null;
+  for(const b of bl){if(Array.isArray(b.fields))fields.push(...b.fields.filter(x=>x&&typeof x==="object").map(norm));if(typeof b.done==="boolean")done=b.done;}
+  const seen=new Set();fields=fields.filter(f=>{const k=f.section+"|"+(f.header||f.english);if(seen.has(k))return false;seen.add(k);return true;});
+  ST.data={fields,done};
   const r=$("#result");
   if(!$("#reply").value.trim()){r.innerHTML="";$("#dlBtn").disabled=true;$("#preview").innerHTML="";return;}
-  if(!uniq.length){r.innerHTML=`<div class="msg bad">I couldn't find the cookbook in what you pasted. Copy Claude's <b>whole</b> answer, including the part that starts with <span style="font-family:var(--mono)">{"fields"</span>.</div>`;$("#dlBtn").disabled=true;$("#preview").innerHTML="";return;}
-  const nIss=uniq.filter(f=>issues(f).length).length;
+  if(!fields.length){r.innerHTML=`<div class="msg bad">I couldn't find the cookbook in what you pasted. Copy Claude's <b>whole</b> answer, including the part that starts with <span style="font-family:var(--mono)">{"fields"</span>.</div>`;$("#dlBtn").disabled=true;$("#preview").innerHTML="";return;}
+  const nChk=fields.filter(f=>f.check).length;
   r.innerHTML=(done===false?`<div class="msg warn">Claude isn't finished yet. Type <b>continue</b> in Claude.ai and paste the next answer below the first one. You can still download what you have.</div>`:"")+
-    `<div class="msg ok">Found <b>${uniq.length} headers</b>${comps.length?` and ${comps.length} pay components`:""}. ${nIss?`${nIss} need a second look (marked below and in the Excel).`:"No problems found."}</div>`;
-  $("#dlBtn").disabled=false; $("#s3").classList.toggle("done",done!==false);
-  $("#preview").innerHTML=`<div class="card"><h2>Preview</h2><div class="tw"><table><thead><tr><th>#</th><th>Header</th><th>English</th><th>M/O</th><th>Len</th><th>Format</th><th>Mapping</th></tr></thead><tbody>${uniq.map((f,i)=>{const is=issues(f);return `<tr><td class="m">${i+1}</td><td>${esc(f.local)}${is.length?`<div class="issue">${is.map(esc).join("<br>")}</div>`:""}</td><td>${esc(f.english)}</td><td>${esc(f.mand)}</td><td class="m">${esc(f.length??"")}</td><td class="m">${esc(f.format)}</td><td>${esc(f.table)} <span class="m">${esc(f.code)}</span></td></tr>`;}).join("")}</tbody></table></div></div>`;
+    `<div class="msg ok">Found <b>${fields.length} headers</b>. ${nChk?`${nChk} ${nChk===1?"has":"have"} something to confirm (yellow “Check” column).`:"Nothing flagged to confirm."}</div>`;
+  $("#dlBtn").disabled=false;$("#s3").classList.toggle("done",done!==false);
+  let last=null,html="";const multi=new Set(fields.map(f=>f.section)).size>1;
+  fields.forEach((f,i)=>{if(multi&&f.section!==last){html+=`<tr class="sec"><td colspan="7">${esc(f.section||"Other")}</td></tr>`;last=f.section;}
+    html+=`<tr><td>${i+1}</td><td class="h"><b>${esc(f.header)}</b>${f.english&&f.english!==f.header?`<span>${esc(f.english)}</span>`:""}</td><td>${esc(f.meaning)}</td><td>${esc(f.mapping)}${f.code?`<div class="c" style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">${esc(f.code)}</div>`:""}</td><td>${esc(f.logic)}</td><td>${esc(f.mandatory)}<br><span style="color:var(--muted);font-size:13px">${esc(f.format)}</span></td><td class="chk">${esc(f.check)}</td></tr>`;});
+  $("#preview").innerHTML=`<div class="card"><h2>Preview</h2><div class="tw"><table><thead><tr><th>#</th><th>Report header</th><th>Meaning</th><th>Field mapping / code</th><th>How to fill</th><th>Mandatory / format</th><th>Check</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
 }
 $("#reply").addEventListener("input",()=>{clearTimeout(parseReply.t);parseReply.t=setTimeout(parseReply,250);});
 
-/* build the Excel in the colleague's layout */
+/* build a readable Excel: one main sheet, styled */
 $("#dlBtn").onclick=()=>{
   const d=ST.data;if(!d||!d.fields.length)return;
   const v=k=>$("#"+k).value.trim();
-  const wb=XLSX.utils.book_new();
-  const H=["Headers name in local language","Header name In English","Position Within the File","Mandatory/Optional","Purpose of the Header","LENGTH","FORMAT","Example values","Field Mapping (Table name)","Field Code","Field Name","Values","Logics"];
-  const rows=d.fields.map(f=>[f.local,f.english,f.section,f.mand,f.purpose,f.length??"",f.format,f.example,f.table,f.code,f.name,f.values,f.logic]);
-  const ws=XLSX.utils.aoa_to_sheet([H,...rows]);ws["!cols"]=[30,28,30,14,46,8,16,16,22,26,26,30,48].map(w=>({wch:w}));
-  ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:12}})};
-  XLSX.utils.book_append_sheet(wb,ws,(v("report")||"Report").replace(/[\\/?*[\]:]/g," ").slice(0,31));
-  const cs=XLSX.utils.aoa_to_sheet([["Component Code","Base field (Monthly Earning)","Employee Contribution","Employer Contribution","Source"],...d.components.map(c=>[c.code,c.base,c.ee,c.er,c.source])]);cs["!cols"]=[28,32,34,34,16].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,cs,"Pay Components");
-  // record layout per section, with positions
-  const lay=[];const run={},tot={};let last=null;
-  d.fields.forEach((f,i)=>{const s=f.section||"—";if(s!==last){if(last!==null){lay.push(["RECORD LENGTH","",tot[last]||""]);lay.push([]);}lay.push([s]);lay.push(["#","FIELD","LENGTH","FORMAT","POSITION"]);last=s;run[s]=run[s]||1;}
-    const L=parseInt(f.length,10);let pos="";if(Number.isFinite(L)&&L>0){pos=run[s]+"-"+(run[s]+L-1);run[s]+=L;}tot[s]=run[s]-1;lay.push([i+1,f.english||f.local,f.length??"",f.format,pos]);});
-  if(last!==null)lay.push(["RECORD LENGTH","",tot[last]||""]);
-  const ls=XLSX.utils.aoa_to_sheet(lay);ls["!cols"]=[16,44,10,18,12].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ls,"Record Layout");
-  const ck=XLSX.utils.aoa_to_sheet([["#","Header","Confidence","Official source","Things to check"],...d.fields.map((f,i)=>[i+1,f.local||f.english,f.confidence,f.source,issues(f).join("; ")])]);ck["!cols"]=[5,36,12,50,50].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,ck,"Sources & Checks");
+  const COLS=[["#",5,"n"],["Report Header",30,"header"],["Header in English",26,"english"],["Meaning",44,"meaning"],["Field Mapping",30,"mapping"],["Field Code",22,"code"],["How to Fill (Logic)",50,"logic"],["Mandatory",14,"mandatory"],["Format",22,"format"],["Length",8,"length"],["Example",18,"example"],["Check / To Confirm",36,"check"],["Official Source",36,"source"]];
+  const border={top:{style:"thin",color:{rgb:"C9D2DA"}},bottom:{style:"thin",color:{rgb:"C9D2DA"}},left:{style:"thin",color:{rgb:"C9D2DA"}},right:{style:"thin",color:{rgb:"C9D2DA"}}};
+  const sHead={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F5F8B"}},alignment:{wrapText:true,vertical:"center"},border};
+  const sCell={alignment:{wrapText:true,vertical:"top"},border};
+  const sBold={...sCell,font:{bold:true}};
+  const sCheck={...sCell,fill:{fgColor:{rgb:"FFF2CC"}}};
+  const sSec={font:{bold:true,color:{rgb:"1F3A52"}},fill:{fgColor:{rgb:"DCE9F3"}},border,alignment:{vertical:"center"}};
+  const sTitle={font:{bold:true,sz:14}};
+  const aoa=[],styles=[];
+  aoa.push([`${v("report")} – ${v("country")}`]);styles.push([sTitle]);
+  aoa.push([`${v("authority")?v("authority")+" · ":""}Filed ${v("freq").toLowerCase()} · Made ${new Date().toISOString().slice(0,10)} with Claude.ai – verify rows marked in yellow`]);styles.push([{font:{italic:true,color:{rgb:"5B6977"}}}]);
+  aoa.push([]);styles.push([]);
+  aoa.push(COLS.map(c=>c[0]));styles.push(COLS.map(()=>sHead));
+  const headRow=aoa.length-1;const merges=[];
+  const multi=new Set(d.fields.map(f=>f.section)).size>1;let last=null;
+  d.fields.forEach((f,i)=>{
+    if(multi&&f.section!==last){aoa.push([f.section||"Other"]);styles.push(COLS.map(()=>sSec));merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:COLS.length-1}});last=f.section;}
+    aoa.push(COLS.map(c=>c[2]==="n"?i+1:(f[c[2]]??"")));
+    styles.push(COLS.map(c=>c[2]==="header"?sBold:c[2]==="check"&&f.check?sCheck:sCell));
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  aoa.forEach((row,r)=>COLS.forEach((_,c)=>{const ref=XLSX.utils.encode_cell({r,c});if(!ws[ref]&&r>headRow&&styles[r]&&styles[r][c])ws[ref]={t:"s",v:""};if(ws[ref]&&styles[r]&&styles[r][c])ws[ref].s=styles[r][c];}));
+  ws["!cols"]=COLS.map(c=>({wch:c[1]}));ws["!merges"]=merges;
+  ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:headRow,c:0},e:{r:aoa.length-1,c:COLS.length-1}})};
+  ws["!rows"]=[{hpt:22},{},{},{hpt:30}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cookbook");
   const base=`${v("country")} ${v("report")}`.normalize("NFKD").replace(/[‐-―]/g,"-").replace(/[^\x20-\x7E]/g,"").replace(/[\\/:*?"<>|]+/g,"-").replace(/[\s-]*-[\s-]*/g,"-").trim().replace(/\s+/g,"_");
   const name=(base?base+"_":"")+"Cookbook.xlsx";
   const blob=new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
