@@ -1,0 +1,890 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="Build statutory payroll report cookbooks: headers, research, data mapping, checks and Excel export."></head><body><title>Cookbook Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: spec-ledger — library rail on the left, a working record-layout sheet on the right, detail drawer for the active field. */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#18232e; --muted:#5d6b78; --line:#d9dfe5; --line-strong:#b9c3cc;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --accent-soft:#e3eef6; --row:#f8fafb;
+  --ok:#2f7d4f; --ok-soft:#e2f2e8; --warn:#9a6a00; --warn-soft:#fbf0d4; --bad:#b03a2e; --bad-soft:#f8e3e0;
+  --display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#11171d; --panel:#18212a; --ink:#e3e9ef; --muted:#93a2b0; --line:#2a3642; --line-strong:#3b4a58;
+  --accent:#6fb0dc; --accent-ink:#0b1620; --accent-soft:#1d3346; --row:#1c2630;
+  --ok:#6cc58f; --ok-soft:#173326; --warn:#e2b54a; --warn-soft:#3a2f12; --bad:#ec8576; --bad-soft:#3d1f1b; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11171d; --panel:#18212a; --ink:#e3e9ef; --muted:#93a2b0; --line:#2a3642; --line-strong:#3b4a58;
+  --accent:#6fb0dc; --accent-ink:#0b1620; --accent-soft:#1d3346; --row:#1c2630;
+  --ok:#6cc58f; --ok-soft:#173326; --warn:#e2b54a; --warn-soft:#3a2f12; --bad:#ec8576; --bad-soft:#3d1f1b; color-scheme:dark }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:16px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.brand .mark{font-family:var(--mono);font-size:11px;font-weight:600;border:1.5px solid var(--ink);padding:2px 5px;border-radius:3px;letter-spacing:.04em}
+.top .spacer{flex:1}
+.status{font-size:13px;color:var(--muted);font-family:var(--mono)}
+.status.bad{color:var(--bad)}
+.shell{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:calc(100% - 56px)}
+aside.lib{border-right:1px solid var(--line);background:var(--panel);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+main{min-width:0;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (max-width:860px){ .shell{grid-template-columns:1fr} aside.lib{border-right:0;border-bottom:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))} }
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.btn{border:1px solid var(--line-strong);background:var(--panel);border-radius:var(--r);padding:7px 12px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:4px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text],input[type=number],input[type=search],select,textarea{background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r);padding:7px 9px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:62px}
+.mono{font-family:var(--mono);font-size:13px}
+.booklist{display:flex;flex-direction:column;gap:2px;overflow:auto;max-height:60vh}
+.bookitem{text-align:left;border:0;background:transparent;border-radius:var(--r);padding:9px 10px;display:flex;flex-direction:column;gap:2px}
+.bookitem:hover{background:var(--row)}
+.bookitem.on{background:var(--accent-soft)}
+.bookitem .t{font-weight:700;font-size:14px}
+.bookitem .s{font-size:12.5px;color:var(--muted)}
+.empty-lib{font-size:13.5px;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:-.015em;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:700;font-size:18px;margin:0}
+.titlein{font-family:var(--display);font-weight:800;font-size:clamp(20px,2.6vw,28px);border:1px solid transparent;background:transparent;padding:2px 6px;margin-left:-7px;width:100%}
+.titlein:hover,.titlein:focus{border-color:var(--line-strong);background:var(--panel)}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.meta label,.fld label,.fld3 label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;min-width:0}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:18px 0 6px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+.step{padding:10px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.step:last-child{border-right:0}
+.step .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.step .l{font-weight:700;font-size:14px}
+.step .v{font-size:12.5px;color:var(--muted)}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--accent)}
+@media (max-width:640px){ .step{padding:8px} .step .l{font-size:12.5px} .step .v{display:none} .step .n{font-size:10px} }
+.grid td.map{max-width:220px;overflow-wrap:anywhere}
+.grid td.loc-c{min-width:170px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:16px;overflow-x:auto}
+.tab{border:0;background:transparent;padding:9px 14px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .c{font-family:var(--mono);font-size:11px;background:var(--row);border:1px solid var(--line);border-radius:9px;padding:0 6px;margin-left:6px;font-weight:600}
+.tab .c.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0}
+.toolbar input[type=search]{max-width:260px}
+.toolbar select{max-width:260px;width:auto}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start}
+.work.nodetail{grid-template-columns:minmax(0,1fr)}
+@media (max-width:1180px){ .work{grid-template-columns:minmax(0,1fr)} }
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+table.grid{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+.grid th{position:sticky;top:0;background:var(--row);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+.grid td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.grid tr.f{cursor:pointer}
+.grid tr.f:hover td{background:var(--row)}
+.grid tr.f.on td{background:var(--accent-soft)}
+.grid tr.sec td{background:var(--bg);font-weight:700;font-size:12.5px;color:var(--ink);padding:9px 8px;border-bottom:1px solid var(--line-strong)}
+.grid tr.sec .rl{font-family:var(--mono);font-weight:600;color:var(--muted);margin-left:8px}
+.grid .num{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.grid .loc{font-weight:600}
+.grid .sub{color:var(--muted);font-size:12.5px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;border:1px solid transparent}
+.p-draft{background:var(--row);color:var(--muted);border-color:var(--line)}
+.p-ai{background:var(--warn-soft);color:var(--warn)}
+.p-res{background:var(--accent-soft);color:var(--accent)}
+.p-rev{background:var(--ok-soft);color:var(--ok)}
+.p-gap{background:var(--bad-soft);color:var(--bad)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.d-bad{background:var(--bad)} .d-warn{background:var(--warn)}
+.detail{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:16px;display:flex;flex-direction:column;gap:12px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow:auto}
+@media (max-width:1180px){ .detail{position:static;max-height:none} }
+.fld{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld .full{grid-column:1/-1}
+.fld3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.hint{font-size:12.5px;color:var(--muted)}
+.issue{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 8px;border-radius:var(--r)}
+.issue.bad{background:var(--bad-soft);color:var(--bad)} .issue.warn{background:var(--warn-soft);color:var(--warn)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.checklist{display:flex;flex-direction:column;gap:6px}
+.chk{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:9px 12px}
+.chk .what{font-size:14px}
+.chk .where{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sev{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:4px}
+.sev.bad{background:var(--bad-soft);color:var(--bad)} .sev.warn{background:var(--warn-soft);color:var(--warn)}
+.welcome{max-width:880px;display:flex;flex-direction:column;gap:18px}
+.welcome .lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+.flow div{padding:14px;border-right:1px solid var(--line)}
+.flow div:last-child{border-right:0}
+.flow b{display:block;font-family:var(--display);font-size:15px;margin-bottom:4px}
+.flow span{font-size:13.5px;color:var(--muted)}
+.flow .k{font-family:var(--mono);font-size:11px;color:var(--accent);display:block;margin-bottom:6px}
+dialog{border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);color:var(--ink);padding:0;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,20,30,.45)}
+.dlg{padding:18px;display:flex;flex-direction:column;gap:12px}
+.dlg .foot{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.drop{border:1.5px dashed var(--line-strong);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+pre.prompt{white-space:pre-wrap;background:var(--row);border:1px solid var(--line);border-radius:var(--r);padding:12px;font-family:var(--mono);font-size:12.5px;max-height:320px;overflow:auto;margin:0}
+.note{font-size:13px;background:var(--row);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:var(--r);font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.legend code{font-family:var(--mono);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">FMT 9/A/X</span> Cookbook Studio</div>
+  <div class="spacer"></div>
+  <span class="status" id="saveStatus">Connecting…</span>
+  <button class="btn sm" id="settingsBtn" type="button" hidden>Settings</button>
+</header>
+<div class="shell">
+  <aside class="lib">
+    <div class="row" style="justify-content:space-between"><span class="eyebrow">Report cookbooks</span></div>
+    <div class="row">
+      <button class="btn primary" id="newBtn" type="button">New cookbook</button>
+      <button class="btn" id="importBtn" type="button">Import file</button>
+    </div>
+    <div class="row" id="backupRow" hidden>
+      <button class="btn sm" id="backupAll" type="button">Back up all</button>
+      <span class="hint">Restore or share: use Import file with a backup.</span>
+    </div>
+    <input type="search" id="libSearch" placeholder="Search country or report">
+    <div class="booklist" id="bookList"></div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<dialog id="dlgNew"><form class="dlg" id="formNew">
+  <h2>New report cookbook</h2>
+  <div class="fld">
+    <label>Country / region<input type="text" id="nCountry" required placeholder="e.g. Australia – New South Wales"></label>
+    <label>Statutory report<input type="text" id="nReport" required placeholder="e.g. Payroll Tax monthly return"></label>
+    <label>Authority<input type="text" id="nAuth" placeholder="e.g. Revenue NSW"></label>
+    <label>Filing frequency<select id="nFreq"><option>Monthly</option><option>Quarterly</option><option>Annual</option><option>Per pay run</option><option>Event-based</option></select></label>
+    <label class="full">File type<select id="nType"><option value="fixed">Fixed-width text (positions &amp; lengths)</option><option value="delimited">CSV / delimited</option><option value="excel">Excel / portal template</option><option value="xml">XML / JSON</option></select></label>
+  </div>
+  <div class="foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="submit">Create</button></div>
+</form></dialog>
+
+<dialog id="dlgImport"><div class="dlg">
+  <h2>Import a file</h2>
+  <p class="hint" style="margin:0">Drop an existing cookbook (.xlsx in your team's layout), a sample statutory report, a layout spec or a Cookbook Studio .json backup. Files are read in your browser. Only header names and structure are kept; sample values are not imported.</p>
+  <div class="drop" id="drop">Drop a file here or <label style="color:var(--accent);cursor:pointer;font-weight:700"><input type="file" id="fileIn" accept=".xlsx,.xls,.csv,.json" hidden>choose a file</label></div>
+  <div id="impOpts" hidden>
+    <div class="fld">
+      <label>Sheet<select id="impSheet"></select></label>
+      <label>Read it as<select id="impMode"><option value="cookbook">Cookbook (one row per field)</option><option value="sample">Sample report (header row → fields)</option><option value="components">Pay component mapping table</option></select></label>
+      <label class="full">Add to<select id="impTarget"></select></label>
+    </div>
+    <p class="hint" id="impPreview" style="margin:6px 0 0"></p>
+  </div>
+  <div class="foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" id="impGo" type="button" disabled>Import</button></div>
+</div></dialog>
+
+<dialog id="dlgPaste"><div class="dlg">
+  <h2>Add headers</h2>
+  <p class="hint" style="margin:0">One header per line. Optional: <span class="mono">local name ⇥ English name ⇥ length ⇥ format</span>, tab-separated, e.g. pasted straight from Excel or a PDF table.</p>
+  <label class="eyebrow" for="pasteSection">Section / record type</label>
+  <input type="text" id="pasteSection" list="sectionList" placeholder="e.g. Employee details record">
+  <textarea id="pasteText" rows="10" class="mono" placeholder="Τύπος Εγγραφής&#9;Record Type&#9;1&#9;9"></textarea>
+  <div class="foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" id="pasteGo" type="button">Add headers</button></div>
+</div></dialog>
+
+<dialog id="dlgPrompt"><div class="dlg">
+  <h2>Deep-research prompt</h2>
+  <p class="hint" style="margin:0">Claude in this page drafts from its own knowledge. To check every header against official sources, run this prompt in Claude Code with the exported workbook attached, then import the result back here.</p>
+  <pre class="prompt" id="promptText"></pre>
+  <div class="foot"><button class="btn" type="button" data-close>Close</button><button class="btn primary" id="copyPrompt" type="button">Copy prompt</button></div>
+</div></dialog>
+
+<dialog id="dlgSettings"><div class="dlg">
+  <h2>Settings</h2>
+  <p class="hint" style="margin:0">To let Claude draft fields directly, add an Anthropic API key from your organisation. The key stays in this browser and is sent only to api.anthropic.com. Without a key, use “Draft by copy &amp; paste” with Claude in your browser.</p>
+  <div class="fld">
+    <label class="full">Anthropic API key<input type="text" id="setKey" class="mono" autocomplete="off" placeholder="sk-ant-…"></label>
+    <label class="full">Model<select id="setModel"><option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recommended)</option><option value="claude-opus-5-5">Claude Opus 5.5 (most capable)</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest)</option></select></label>
+  </div>
+  <div class="note">Cookbooks are saved in this browser. Use “Back up all” regularly and keep the file on your shared drive. Colleagues load it with Import file.</div>
+  <div class="foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" id="setSave" type="button">Save</button></div>
+</div></dialog>
+
+<dialog id="dlgManual"><div class="dlg">
+  <h2>Draft by copy &amp; paste</h2>
+  <p class="hint" style="margin:0">1. Copy this prompt and paste it into Claude (claude.ai or your company's Claude). 2. Paste Claude's whole reply below. 3. Apply. <span id="manInfo"></span></p>
+  <pre class="prompt" id="manPrompt"></pre>
+  <div class="row"><button class="btn" id="manCopy" type="button">Copy prompt</button></div>
+  <textarea id="manReply" rows="7" class="mono" placeholder="Paste Claude's reply here (a JSON array)"></textarea>
+  <div class="foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" id="manApply" type="button">Apply to fields</button></div>
+</div></dialog>
+
+<datalist id="sectionList"></datalist>
+<datalist id="dlTable"></datalist>
+<datalist id="dlCode"></datalist>
+<datalist id="dlName"></datalist>
+
+<script>
+"use strict";
+/* ---------- constants ---------- */
+const COLS = [
+  ["local","Header name (local language)"],["english","Header name (English)"],["section","Section / record type"],
+  ["mand","Mandatory / Optional"],["purpose","Purpose of the header"],["length","Length"],["format","Format"],
+  ["example","Example value"],["table","Field mapping (table name)"],["code","Field code"],["name","Field name"],
+  ["values","Values"],["logic","Logic"]];
+const STATUS = ["Draft","AI draft","Researched","Reviewed","Gap"];
+const STATUS_CLS = {"Draft":"p-draft","AI draft":"p-ai","Researched":"p-res","Reviewed":"p-rev","Gap":"p-gap"};
+const TYPES = {fixed:"Fixed-width text",delimited:"CSV / delimited",excel:"Excel / portal",xml:"XML / JSON"};
+const STATIC_RX = /^(static|constant|fixed|calculated|derived|system|n\/?a)$/i;
+
+/* ---------- state ---------- */
+const S = { books:new Map(), cur:null, tab:"fields", sel:null, q:"", sec:"", stat:"", libQ:"", db:null, user:null, sample:null, downloads:null, me:null, local:false };
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.append(t); setTimeout(()=>t.remove(),2600); }
+function book(){ return S.cur ? S.books.get(S.cur) : null; }
+function newField(p={}){ return Object.assign({id:uid(),local:"",english:"",section:"",mand:"",purpose:"",length:"",format:"",example:"",table:"",code:"",name:"",values:"",logic:"",status:"Draft",confidence:"",reference:"",note:""}, p); }
+function newBook(meta){ return {id:uid(), meta:Object.assign({country:"",report:"",authority:"",frequency:"Monthly",type:"fixed",version:"1.0"},meta), fields:[], components:[], created:Date.now(), updated:Date.now()}; }
+
+/* ---------- format logic ---------- */
+function fmtLen(fmt){
+  if(!fmt) return null;
+  let f = String(fmt).trim().toUpperCase().replace(/\s+/g,"");
+  if(/^(DDMMYYYY|YYYYMMDD|MMDDYYYY|ΗΗΜΜΕΕΕΕ|DD\/MM\/YYYY|YYYY-MM-DD|DD-MM-YYYY|DD\.MM\.YYYY)$/.test(f)) return f.length;
+  if(/^(YYYYMM|MMYYYY|YYYY|MM|DD)$/.test(f)) return f.length;
+  f = f.replace(/V/g,"");
+  let total = 0, ok = false;
+  const rx = /([9AXΑΧ])(?:\((\d+)\))?/g; let m, consumed = 0;
+  while((m = rx.exec(f))){ ok = true; total += m[2] ? +m[2] : 1; consumed += m[0].length; }
+  return ok && consumed === f.length ? total : null;
+}
+function fmtKind(fmt){
+  const f = String(fmt||"").toUpperCase();
+  if(/D.*M.*Y|Y.*M.*D|ΗΗ|ΕΕΕΕ/.test(f)) return "date";
+  if(/^[9V()\d]+$/.test(f.replace(/\s/g,""))) return "num";
+  if(/^[AΑ]/.test(f)) return "alpha";
+  if(/^[XΧ]/.test(f)) return "alnum";
+  return "";
+}
+function positions(b){
+  const out = {}, run = {}, tot = {};
+  for(const f of b.fields){ const k=f.section||"—"; const L=parseInt(f.length,10);
+    if(!run[k]) run[k]=1;
+    if(Number.isFinite(L) && L>0){ out[f.id]=[run[k], run[k]+L-1]; run[k]+=L; } else out[f.id]=null;
+    tot[k]=run[k]-1; }
+  return {pos:out, tot};
+}
+function sections(b){ const s=[]; for(const f of b.fields){ const k=f.section||"—"; if(!s.includes(k)) s.push(k);} return s; }
+
+/* ---------- checks ---------- */
+function fieldIssues(b, f){
+  const is = [], fixed = b.meta.type === "fixed";
+  if(!f.local && !f.english) is.push(["bad","No header name"]);
+  if(!f.english) is.push(["warn","English name missing"]);
+  if(!f.purpose) is.push(["warn","Purpose not described"]);
+  if(!f.mand) is.push(["warn","Mandatory / optional not set"]);
+  else if(!/^(mandatory|optional|conditional)/i.test(f.mand)) is.push(["warn",`“${f.mand}” is not Mandatory, Optional or Conditional`]);
+  const L = parseInt(f.length,10);
+  if(fixed && !Number.isFinite(L)) is.push(["bad","Length missing (needed for positions)"]);
+  if(!f.format) is.push([fixed?"bad":"warn","Format missing"]);
+  const fl = fmtLen(f.format);
+  if(Number.isFinite(L) && fl !== null && fl !== L) is.push(["bad",`Format ${f.format} is ${fl} characters but length is ${L}`]);
+  if(f.example && Number.isFinite(L) && String(f.example).length > L) is.push(["bad",`Example is ${String(f.example).length} characters, longer than length ${L}`]);
+  const k = fmtKind(f.format);
+  if(f.example && k === "num" && /[^0-9]/.test(String(f.example))) is.push(["warn","Example has non-digits but the format is numeric"]);
+  if(f.example && k === "date" && Number.isFinite(L) && String(f.example).length !== L) is.push(["warn",`Date example should be exactly ${L} characters (leading zeros)`]);
+  if(!f.table && !f.code) is.push(["warn","No data source mapped"]);
+  else if(f.table && !STATIC_RX.test(f.table) && !f.code && !f.name) is.push(["warn","Source table set but no field code"]);
+  if(f.status === "Gap") is.push(["bad","Marked as data gap"]);
+  return is;
+}
+function allIssues(b){
+  const out=[]; const seen={};
+  for(const f of b.fields){
+    for(const [sev,msg] of fieldIssues(b,f)) out.push({sev,msg,f});
+    const key=(f.section||"")+"|"+(f.local||f.english).trim().toLowerCase();
+    if(key.split("|")[1]){ if(seen[key]) out.push({sev:"warn",msg:"Duplicate header name in the same section",f}); seen[key]=1; }
+  }
+  return out;
+}
+function progress(b){
+  const n=b.fields.length||0, c=k=>b.fields.filter(k).length;
+  return { n,
+    research:c(f=>f.purpose&&f.mand&&f.format),
+    mapped:c(f=>f.table||f.code),
+    reviewed:c(f=>f.status==="Reviewed"),
+    bad:allIssues(b).filter(i=>i.sev==="bad").length };
+}
+
+/* ---------- persistence ---------- */
+const saveTimers = {}, saving = {}, pending = new Set();
+function setStatus(t, bad){ const el=$("#saveStatus"); el.textContent=t; el.classList.toggle("bad",!!bad); }
+function touch(b){ b.updated=Date.now(); b.updatedBy=S.me||null; queueSave(b); }
+function queueSave(b){ pending.add(b.id); setStatus("Unsaved changes…"); clearTimeout(saveTimers[b.id]); saveTimers[b.id]=setTimeout(()=>save(b),900); }
+async function save(b){
+  if(S.local){ try{ localStorage.setItem("cbs:"+b.id, JSON.stringify(b)); pending.delete(b.id); setStatus("Saved in this browser only"); }catch(e){ setStatus("Could not save",true);} return; }
+  if(!S.db){ return; }
+  if(saving[b.id]){ queueSave(b); return; }
+  saving[b.id]=true; setStatus("Saving…");
+  const stamp=b.updated;
+  try{ await S.db.collection("cookbooks").doc(b.id).set(JSON.parse(JSON.stringify(b))); if(b.updated===stamp) pending.delete(b.id); setStatus(pending.size?"Saving…":"All changes saved"); }
+  catch(e){ setStatus(e.code==="quota_exceeded"?"Storage full — delete old cookbooks":e.code==="invalid_argument"?"You can view these cookbooks but not change them":"Save failed — your edit is kept on this screen", true); }
+  finally{ saving[b.id]=false; }
+}
+async function removeBook(id){
+  S.books.delete(id); if(S.cur===id){S.cur=null;S.sel=null;}
+  if(S.local){ try{localStorage.removeItem("cbs:"+id);}catch(e){} }
+  else { try{ await S.db.collection("cookbooks").doc(id).delete(); }catch(e){ toast("Delete failed"); } }
+  render();
+}
+function loadLocal(){ try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k.startsWith("cbs:")){ const b=JSON.parse(localStorage.getItem(k)); S.books.set(b.id,b);} } }catch(e){} }
+
+/* ---------- library vocabulary (mapping suggestions learned from all cookbooks) ---------- */
+function vocab(){
+  const t=new Set(), c=new Set(), n=new Set(), triples=new Map();
+  for(const b of S.books.values()) for(const f of b.fields){
+    if(f.table) t.add(f.table); if(f.code) c.add(f.code); if(f.name) n.add(f.name);
+    if(f.table||f.code){ const k=[f.table,f.code,f.name].join(" | "); triples.set(k,(triples.get(k)||0)+1); }
+  }
+  return {t:[...t],c:[...c],n:[...n],triples:[...triples.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0])};
+}
+function fillDatalists(){
+  const v=vocab(); const fill=(id,arr)=>{ const el=$(id); el.innerHTML=arr.slice(0,400).map(x=>`<option value="${esc(x)}">`).join(""); };
+  fill("#dlTable",v.t); fill("#dlCode",v.c); fill("#dlName",v.n);
+  const b=book(); fill("#sectionList", b?sections(b).filter(s=>s!=="—"):[]);
+}
+
+/* ---------- rendering ---------- */
+function renderLib(){
+  const q=S.libQ.toLowerCase();
+  const list=[...S.books.values()].filter(b=>!q||(b.meta.country+" "+b.meta.report).toLowerCase().includes(q)).sort((a,b)=>b.updated-a.updated);
+  const el=$("#bookList");
+  if(!list.length){ el.innerHTML=`<p class="empty-lib">${S.books.size?"No cookbook matches that search.":"No cookbooks yet. Create one, or import your team's existing cookbook (.xlsx) to start from it."}</p>`; return; }
+  el.innerHTML=list.map(b=>{ const p=progress(b); return `<button class="bookitem${b.id===S.cur?" on":""}" data-book="${esc(b.id)}" type="button">
+    <span class="t">${esc(b.meta.report||"Untitled report")}</span>
+    <span class="s">${esc(b.meta.country||"Country not set")} · ${p.n} fields · ${p.reviewed}/${p.n} reviewed</span></button>`; }).join("");
+}
+function render(){
+  renderLib(); fillDatalists();
+  const b=book(), m=$("#main");
+  if(!b){ m.innerHTML=welcomeHTML(); return; }
+  const p=progress(b), pct=x=>p.n?Math.round(100*x/p.n):0, iss=allIssues(b);
+  m.innerHTML=`
+  <input class="titlein" id="mReport" value="${esc(b.meta.report)}" placeholder="Report name" aria-label="Report name">
+  <div class="meta">
+    <label>Country / region<input type="text" id="mCountry" value="${esc(b.meta.country)}"></label>
+    <label>Authority<input type="text" id="mAuth" value="${esc(b.meta.authority)}"></label>
+    <label>Frequency<input type="text" id="mFreq" value="${esc(b.meta.frequency)}"></label>
+    <label>File type<select id="mType">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${b.meta.type===k?" selected":""}>${v}</option>`).join("")}</select></label>
+    <label>Cookbook version<input type="text" id="mVer" value="${esc(b.meta.version)}"></label>
+  </div>
+  <div class="steps">
+    ${stepHTML(1,"Headers",p.n+" captured",p.n?100:0)}
+    ${stepHTML(2,"Research",`${p.research}/${p.n} described`,pct(p.research))}
+    ${stepHTML(3,"Mapping",`${p.mapped}/${p.n} mapped`,pct(p.mapped))}
+    ${stepHTML(4,"Checks",p.bad?`${p.bad} errors open`:(p.n?"No errors":"—"),p.n?(p.bad?Math.max(5,100-p.bad*5):100):0)}
+    ${stepHTML(5,"Review",`${p.reviewed}/${p.n} reviewed`,pct(p.reviewed))}
+  </div>
+  <div class="tabs" role="tablist">
+    ${tabHTML("fields","Fields",p.n)}${tabHTML("components","Pay components",b.components.length)}
+    ${tabHTML("checks","Checks",iss.length,p.bad>0)}${tabHTML("export","Export & share","")}
+  </div>
+  <div id="tabBody"></div>`;
+  ({fields:renderFields,components:renderComponents,checks:renderChecks,export:renderExport})[S.tab](b);
+}
+const stepHTML=(n,l,v,pc)=>`<div class="step"><span class="n">STEP ${n}</span><span class="l">${l}</span><span class="v">${esc(v)}</span><span class="bar"><i style="width:${pc}%"></i></span></div>`;
+const tabHTML=(k,l,c,bad)=>`<button class="tab${S.tab===k?" on":""}" data-tab="${k}" type="button" role="tab">${l}${c!==""?`<span class="c${bad?" bad":""}">${c}</span>`:""}</button>`;
+function welcomeHTML(){
+  return `<div class="welcome">
+    <h1>Build a statutory report cookbook, field by field</h1>
+    <p class="lede">A cookbook explains every header of a statutory report: what it means, its length and format, where the data comes from and the logic that fills it. Cookbook Studio walks you through the same structure your team already uses, then exports it as an Excel workbook.</p>
+    <div class="flow">
+      <div><span class="k">STEP 1</span><b>Capture headers</b><span>Paste them, or import a sample report, layout spec or an existing cookbook.</span></div>
+      <div><span class="k">STEP 2</span><b>Research</b><span>Claude drafts purpose, format, values and logic for each header. You verify them.</span></div>
+      <div><span class="k">STEP 3</span><b>Map data</b><span>Pick source tables and field codes. Suggestions come from your other cookbooks.</span></div>
+      <div><span class="k">STEP 4</span><b>Check</b><span>Format vs length, positions, record lengths, examples, missing mapping.</span></div>
+      <div><span class="k">STEP 5</span><b>Export</b><span>Workbook in the 13-column cookbook layout, plus component mapping and record layout.</span></div>
+    </div>
+    <div class="row"><button class="btn primary" type="button" data-act="new">New cookbook</button><button class="btn" type="button" data-act="import">Import an existing cookbook</button></div>
+    <p class="hint">${S.standalone?"Cookbooks are saved in this browser. Use “Back up all” and keep the file on your shared drive so colleagues can import it.":"Cookbooks are saved for everyone who opens this page, so colleagues can pick up where you left off."}</p>
+  </div>`;
+}
+
+/* fields tab */
+function renderFields(b){
+  const {pos,tot}=positions(b), secs=sections(b), q=S.q.toLowerCase();
+  const vis=b.fields.filter(f=>(!S.sec||(f.section||"—")===S.sec)&&(!S.stat||f.status===S.stat)&&(!q||[f.local,f.english,f.code,f.name,f.table].join(" ").toLowerCase().includes(q)));
+  const empty=b.fields.filter(f=>!f.purpose||!f.format||!f.mand).length;
+  const fixed=b.meta.type==="fixed";
+  let rows="", lastSec=null, idx=0;
+  for(const f of vis){
+    const k=f.section||"—";
+    if(k!==lastSec){ rows+=`<tr class="sec"><td colspan="9">${esc(k)}${fixed&&tot[k]?`<span class="rl">record length ${tot[k]}</span>`:""}</td></tr>`; lastSec=k; }
+    const is=fieldIssues(b,f), bad=is.some(i=>i[0]==="bad"), warn=is.length>0;
+    const ps=pos[f.id]; idx=b.fields.indexOf(f)+1;
+    rows+=`<tr class="f${f.id===S.sel?" on":""}" data-field="${esc(f.id)}" tabindex="0">
+      <td class="num">${idx}</td>
+      <td class="loc-c"><div class="loc">${bad?'<span class="dot d-bad" title="Has errors"></span>':warn?'<span class="dot d-warn" title="Has warnings"></span>':""}${esc(f.local||"—")}</div><div class="sub">${esc(f.english)}</div></td>
+      <td>${esc(shortMand(f.mand))}</td>
+      ${fixed?`<td class="num">${ps?ps[0]+"–"+ps[1]:"—"}</td>`:""}
+      <td class="num">${esc(f.length)}</td><td class="num">${esc(f.format)}</td>
+      <td class="map"><div>${esc(f.table)}</div><div class="sub mono">${esc(f.code)}</div></td>
+      <td><span class="pill ${STATUS_CLS[f.status]||"p-draft"}">${esc(f.status)}</span></td></tr>`;
+  }
+  const sel=b.fields.find(f=>f.id===S.sel);
+  $("#tabBody").innerHTML=`
+  <div class="toolbar">
+    <input type="search" id="fq" placeholder="Search fields" value="${esc(S.q)}">
+    <select id="fsec"><option value="">All sections</option>${secs.map(s=>`<option${S.sec===s?" selected":""}>${esc(s)}</option>`).join("")}</select>
+    <select id="fstat"><option value="">Any status</option>${STATUS.map(s=>`<option${S.stat===s?" selected":""}>${s}</option>`).join("")}</select>
+    <span style="flex:1"></span>
+    <button class="btn" type="button" data-act="paste">Add headers</button>
+    <button class="btn" type="button" data-act="addfield">Add field</button>
+    ${S.standalone?`<button class="btn" type="button" data-act="manualall" ${empty?"":"disabled"}>Draft by copy &amp; paste</button>`:""}
+    ${S.sample||!S.standalone?`<button class="btn primary" type="button" data-act="draftall" ${S.sample&&empty?"":"disabled"} title="${S.sample?"":"Claude is not available in this view"}">Draft ${empty} empty with Claude</button>`:""}
+  </div>
+  <div id="bulk"></div>
+  ${b.fields.length?`<div class="work${sel?"":" nodetail"}">
+    <div class="tablewrap"><table class="grid"><thead><tr><th>#</th><th>Header</th><th>M/O</th>${fixed?"<th>Pos</th>":""}<th>Len</th><th>Format</th><th>Mapping</th><th>Status</th></tr></thead><tbody>${rows||`<tr><td colspan="9" class="hint" style="padding:16px">No field matches these filters.</td></tr>`}</tbody></table></div>
+    ${sel?detailHTML(b,sel,pos[sel.id]):""}
+  </div>`:`<div class="card" style="max-width:640px"><h2>No headers yet</h2><p>Paste the header list from the official template or layout spec, or import a sample report and the column headers become fields.</p><div class="row"><button class="btn primary" type="button" data-act="paste">Paste headers</button><button class="btn" type="button" data-act="import">Import a file</button></div></div>`}`;
+}
+function shortMand(m){ const s=String(m||"").toLowerCase(); return s.startsWith("mand")?"M":s.startsWith("opt")?"O":s.startsWith("cond")?"C":(m||"—"); }
+function detailHTML(b,f,ps){
+  const is=fieldIssues(b,f), i=b.fields.indexOf(f)+1, fl=fmtLen(f.format);
+  const inp=(k,lbl,cls="",extra="")=>`<label class="${cls}">${lbl}<input type="text" data-k="${k}" value="${esc(f[k])}" ${extra}></label>`;
+  const ta=(k,lbl,rows=3)=>`<label class="full">${lbl}<textarea data-k="${k}" rows="${rows}">${esc(f[k])}</textarea></label>`;
+  return `<section class="detail" aria-label="Field detail">
+    <div class="row" style="justify-content:space-between">
+      <span class="eyebrow">Field ${i} of ${b.fields.length}${ps?` · position ${ps[0]}–${ps[1]}`:""}</span>
+      <div class="row"><button class="btn sm ghost" type="button" data-act="up" title="Move up">↑</button><button class="btn sm ghost" type="button" data-act="down" title="Move down">↓</button><button class="btn sm ghost" type="button" data-act="close" title="Close">✕</button></div>
+    </div>
+    <div class="fld">
+      ${inp("local","Header name (local language)","full")}
+      ${inp("english","Header name (English)","full")}
+      ${inp("section","Section / record type","full",'list="sectionList"')}
+      <label>Mandatory / Optional<select data-k="mand"><option value=""></option>${["Mandatory","Optional","Conditional"].map(o=>`<option${f.mand===o?" selected":""}>${o}</option>`).join("")}${f.mand&&!["Mandatory","Optional","Conditional"].includes(f.mand)?`<option selected>${esc(f.mand)}</option>`:""}</select></label>
+      <label>Status<select data-k="status">${STATUS.map(s=>`<option${f.status===s?" selected":""}>${s}</option>`).join("")}</select></label>
+    </div>
+    <div class="fld3">
+      ${inp("length","Length","",'inputmode="numeric"')}
+      <label>Format<input type="text" class="mono" data-k="format" value="${esc(f.format)}" placeholder="9(10), X(50), DDMMYYYY"></label>
+      ${inp("example","Example")}
+    </div>
+    ${fl!==null?`<p class="hint" style="margin:-4px 0 0">Format ${esc(f.format)} = ${fl} characters.</p>`:""}
+    <div class="fld">
+      ${ta("purpose","Purpose of the header")}
+      ${ta("values","Values (allowed codes)",2)}
+      ${ta("logic","Logic (how the value is derived)",4)}
+    </div>
+    <span class="eyebrow">Data mapping</span>
+    <div class="fld">
+      ${inp("table","Table name","",'list="dlTable"')}
+      ${inp("code","Field code","",'list="dlCode" class="mono"')}
+      ${inp("name","Field name","full",'list="dlName"')}
+    </div>
+    <span class="eyebrow">Evidence</span>
+    <div class="fld">
+      <label>Confidence<select data-k="confidence"><option value=""></option>${["High","Medium","Low"].map(o=>`<option${f.confidence===o?" selected":""}>${o}</option>`).join("")}</select></label>
+      ${inp("reference","Official reference (URL / section)")}
+      ${ta("note","Notes / open questions",2)}
+    </div>
+    ${is.length?`<div class="checklist">${is.map(([s,m])=>`<div class="issue ${s}"><span class="dot d-${s}"></span>${esc(m)}</div>`).join("")}</div>`:`<div class="issue" style="background:var(--ok-soft);color:var(--ok)">No problems found for this field.</div>`}
+    <div class="row">
+      ${S.sample||!S.standalone?`<button class="btn primary" type="button" data-act="draftone" ${S.sample?"":"disabled"}>Draft with Claude</button>`:`<button class="btn primary" type="button" data-act="manualone">Draft by copy &amp; paste</button>`}
+      <span id="oneOut" class="hint"></span>
+      <span style="flex:1"></span>
+      <button class="btn danger sm" type="button" data-act="delfield" id="delFieldBtn">Delete field</button>
+    </div>
+  </section>`;
+}
+
+/* components tab */
+function renderComponents(b){
+  const rows=b.components.map((c,i)=>`<tr>${["code","base","ee","er","source"].map(k=>`<td><input type="text" data-ci="${i}" data-ck="${k}" value="${esc(c[k])}" ${k!=="code"?'list="dlCode" class="mono"':""}></td>`).join("")}<td><button class="btn sm ghost" type="button" data-delc="${i}" title="Remove row">✕</button></td></tr>`).join("");
+  $("#tabBody").innerHTML=`
+  <p class="hint" style="max-width:70ch">How each pay component (earnings type) maps to the payroll elements for its base and the employee and employer contributions. Use one row per reportable component code.</p>
+  <div class="tablewrap" style="margin-top:10px"><table class="grid"><thead><tr><th>Component code</th><th>Base field</th><th>Employee element</th><th>Employer element</th><th>Source</th><th></th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="6" class="hint" style="padding:16px">No components yet. Add one, or import a component sheet from an existing cookbook.</td></tr>`}</tbody></table></div>
+  <div class="row" style="margin-top:12px"><button class="btn" type="button" data-act="addcomp">Add component</button></div>`;
+}
+
+/* checks tab */
+function renderChecks(b){
+  const iss=allIssues(b); const {tot}=positions(b);
+  const bad=iss.filter(i=>i.sev==="bad"), warn=iss.filter(i=>i.sev==="warn");
+  const list=a=>a.map(i=>`<div class="chk"><span class="sev ${i.sev}">${i.sev==="bad"?"Error":"Check"}</span><div style="min-width:0"><div class="what">${esc(i.msg)}</div><div class="where">#${b.fields.indexOf(i.f)+1} ${esc(i.f.local||i.f.english)} · ${esc(i.f.section||"—")}</div></div><button class="btn sm" type="button" data-goto="${esc(i.f.id)}">Open</button></div>`).join("");
+  $("#tabBody").innerHTML=`
+  <div class="cards" style="margin-top:14px">
+    <div class="card"><span class="eyebrow">Errors</span><h1>${bad.length}</h1><p>Fix before the cookbook is used to build the report.</p></div>
+    <div class="card"><span class="eyebrow">Things to check</span><h1>${warn.length}</h1><p>Missing descriptions, mapping or unusual values.</p></div>
+    ${b.meta.type==="fixed"?`<div class="card"><span class="eyebrow">Record lengths</span><div class="legend">${Object.entries(tot).map(([k,v])=>`<code>${v}</code><span>${esc(k)}</span>`).join("")||"<span>—</span>"}</div><p>Compare with the official layout's record lengths.</p></div>`:""}
+  </div>
+  <h2 style="margin:20px 0 10px">Errors</h2><div class="checklist">${list(bad)||'<p class="hint">No errors.</p>'}</div>
+  <h2 style="margin:20px 0 10px">Things to check</h2><div class="checklist">${list(warn.slice(0,300))||'<p class="hint">Nothing to check.</p>'}</div>`;
+}
+
+/* export tab */
+function renderExport(b){
+  $("#tabBody").innerHTML=`
+  <div class="cards" style="margin-top:14px">
+    <div class="card"><h2>Cookbook workbook</h2><p>.xlsx with the 13 cookbook columns in field order, plus the Pay Components, Record Layout and Format Legend sheets.</p><div class="row"><button class="btn primary" type="button" data-act="xlsx">Download .xlsx</button></div></div>
+    <div class="card"><h2>Backup</h2><p>Full cookbook incl. status, confidence, references and notes as .json. You can import it again here.</p><div class="row"><button class="btn" type="button" data-act="json">Download .json</button></div></div>
+    <div class="card"><h2>Deep research in Claude Code</h2><p>A prompt that asks Claude to verify every header against official sources and return a reference guide.</p><div class="row"><button class="btn" type="button" data-act="prompt">Show prompt</button></div></div>
+    <div class="card"><h2>Copy as table</h2><p>Tab-separated, ready to paste into Excel or a ticket.</p><div class="row"><button class="btn" type="button" data-act="tsv">Copy table</button></div></div>
+  </div>
+  <div class="card" style="margin-top:14px;max-width:760px"><h2>Format notation</h2><div class="legend">
+    <code>9</code><span>Digits only (0–9). Right-aligned, zero-padded.</span>
+    <code>A</code><span>Uppercase letters only (Latin or local script).</span>
+    <code>X</code><span>Letters and digits. Left-aligned, space-padded.</span>
+    <code>V</code><span>Implied decimal point. Not written in the file: 99999999V99 for 2,340.30 is 0000234030.</span>
+    <code>X(50)</code><span>Shorthand for 50 characters of type X.</span>
+    <code>DDMMYYYY</code><span>Date pattern; length 8.</span></div></div>
+  <div class="card" style="margin-top:14px;max-width:760px;border-color:var(--bad)"><h2>Delete this cookbook</h2><p>Removes it for everyone who uses this page. Download a backup first if you may need it.</p><div class="row"><button class="btn danger" type="button" data-act="delbook" id="delBookBtn">Delete cookbook</button></div></div>`;
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", async e=>{
+  const t=e.target.closest("[data-act],[data-book],[data-tab],[data-field],[data-goto],[data-close],[data-delc]"); if(!t) return;
+  const b=book();
+  if(t.dataset.close!==undefined){ t.closest("dialog").close(); return; }
+  if(t.dataset.book){ S.cur=t.dataset.book; S.sel=null; S.q=""; S.sec=""; S.stat=""; S.tab="fields"; render(); return; }
+  if(t.dataset.tab){ S.tab=t.dataset.tab; render(); return; }
+  if(t.dataset.field){ S.sel=t.dataset.field; render(); return; }
+  if(t.dataset.goto){ S.tab="fields"; S.sel=t.dataset.goto; S.sec=""; S.stat=""; S.q=""; render(); return; }
+  if(t.dataset.delc){ b.components.splice(+t.dataset.delc,1); touch(b); render(); return; }
+  const a=t.dataset.act;
+  if(a==="new") openNew();
+  else if(a==="import") openImport();
+  else if(a==="paste"){ $("#pasteSection").value=S.sec||""; $("#pasteText").value=""; $("#dlgPaste").showModal(); }
+  else if(a==="addfield"){ const f=newField({section:S.sec||(b.fields.at(-1)?.section||"")}); const i=b.fields.findIndex(x=>x.id===S.sel); b.fields.splice(i>=0?i+1:b.fields.length,0,f); S.sel=f.id; touch(b); render(); }
+  else if(a==="close"){ S.sel=null; render(); }
+  else if(a==="up"||a==="down"){ const i=b.fields.findIndex(x=>x.id===S.sel), j=a==="up"?i-1:i+1; if(i>=0&&j>=0&&j<b.fields.length){ [b.fields[i],b.fields[j]]=[b.fields[j],b.fields[i]]; touch(b); render(); } }
+  else if(a==="delfield"){ if(t.dataset.armed){ b.fields=b.fields.filter(x=>x.id!==S.sel); S.sel=null; touch(b); render(); } else { t.dataset.armed="1"; t.textContent="Click again to delete"; } }
+  else if(a==="delbook"){ if(t.dataset.armed){ removeBook(b.id); toast("Cookbook deleted"); } else { t.dataset.armed="1"; t.textContent="Click again to delete for everyone"; } }
+  else if(a==="addcomp"){ b.components.push({code:"",base:"",ee:"",er:"",source:""}); touch(b); render(); }
+  else if(a==="draftone") draftFields(b,[b.fields.find(x=>x.id===S.sel)],true);
+  else if(a==="draftall") draftFields(b,b.fields.filter(f=>!f.purpose||!f.format||!f.mand),false);
+  else if(a==="manualone") openManual(b,[b.fields.find(x=>x.id===S.sel)]);
+  else if(a==="manualall") openManual(b,b.fields.filter(f=>!f.purpose||!f.format||!f.mand));
+  else if(a==="xlsx") exportXlsx(b);
+  else if(a==="json") saveFile(fileBase(b)+".json", JSON.stringify(b,null,2));
+  else if(a==="prompt"){ $("#promptText").textContent=researchPrompt(b); $("#dlgPrompt").showModal(); }
+  else if(a==="tsv"){ copyText(toAOA(b).map(r=>r.map(c=>String(c??"").replace(/[\t\n]+/g," ")).join("\t")).join("\n"), "Table copied"); }
+});
+document.addEventListener("keydown", e=>{ if(e.key==="Enter"){ const r=e.target.closest?.("tr[data-field]"); if(r){ S.sel=r.dataset.field; render(); } } });
+document.addEventListener("input", e=>{
+  const b=book(), t=e.target;
+  if(t.id==="libSearch"){ S.libQ=t.value; renderLib(); return; }
+  if(!b) return;
+  const metaMap={mReport:"report",mCountry:"country",mAuth:"authority",mFreq:"frequency",mVer:"version"};
+  if(metaMap[t.id]){ b.meta[metaMap[t.id]]=t.value; touch(b); renderLib(); return; }
+  if(t.id==="fq"){ S.q=t.value; const pos=t.selectionStart; renderFields(b); const n=$("#fq"); n.focus(); n.setSelectionRange(pos,pos); return; }
+  if(t.dataset.k && t.tagName!=="SELECT"){ const f=b.fields.find(x=>x.id===S.sel); if(!f) return; f[t.dataset.k]=t.value; touch(b); refreshRowLight(b,f); dirtyDetail=true; return; }
+  if(t.dataset.ck){ b.components[+t.dataset.ci][t.dataset.ck]=t.value; touch(b); }
+});
+document.addEventListener("change", e=>{
+  const b=book(), t=e.target; if(!b) return;
+  if(t.id==="mType"){ b.meta.type=t.value; touch(b); render(); return; }
+  if(t.id==="fsec"){ S.sec=t.value; render(); return; }
+  if(t.id==="fstat"){ S.stat=t.value; render(); return; }
+  if(t.dataset.k && t.tagName==="SELECT"){ const f=b.fields.find(x=>x.id===S.sel); if(!f) return; f[t.dataset.k]=t.value; touch(b); renderKeepFocus(); }
+});
+/* After typing in the field detail, refresh the table, positions and checks when the input loses focus, keeping focus where the user moved it. */
+let dirtyDetail=false;
+document.addEventListener("focusout", e=>{ if(!dirtyDetail || !e.target.closest?.(".detail")) return;
+  if(e.relatedTarget?.closest?.("button,[data-field],[data-tab],[data-book]")){ dirtyDetail=false; return; } /* the click will re-render */
+  setTimeout(()=>{ if(dirtyDetail){ dirtyDetail=false; renderKeepFocus(); } },0); });
+function renderKeepFocus(){
+  const act=document.activeElement, k=act?.dataset?.k, inDetail=!!act?.closest?.(".detail");
+  let pos=null; try{ pos=act?.selectionStart; }catch(_){}
+  render();
+  if(inDetail && k){ const n=document.querySelector(`.detail [data-k="${k}"]`); if(n){ n.focus(); try{ if(pos!=null) n.setSelectionRange(pos,pos);}catch(_){} } }
+}
+function refreshRowLight(b,f){ const r=document.querySelector(`tr[data-field="${CSS.escape(f.id)}"]`); if(!r) return; const s=r.querySelector(".sub"); if(s) s.textContent=f.english; }
+
+/* ---------- new / paste ---------- */
+function openNew(){ $("#formNew").reset(); $("#dlgNew").showModal(); }
+$("#newBtn").onclick=openNew; $("#importBtn").onclick=()=>openImport();
+$("#formNew").addEventListener("submit", e=>{ e.preventDefault();
+  const b=newBook({country:$("#nCountry").value.trim(),report:$("#nReport").value.trim(),authority:$("#nAuth").value.trim(),frequency:$("#nFreq").value,type:$("#nType").value});
+  S.books.set(b.id,b); S.cur=b.id; S.sel=null; S.tab="fields"; touch(b); $("#dlgNew").close(); render(); });
+$("#pasteGo").onclick=()=>{ const b=book(); if(!b) return; const sec=$("#pasteSection").value.trim();
+  const lines=$("#pasteText").value.split(/\r?\n/).map(l=>l.replace(/\s+$/,"")).filter(l=>l.trim());
+  for(const l of lines){ const p=l.split("\t").map(x=>x.trim()); b.fields.push(newField({local:p[0]||"",english:p[1]||"",length:p[2]||"",format:p[3]||"",section:sec})); }
+  touch(b); $("#dlgPaste").close(); toast(`${lines.length} headers added`); render(); };
+$("#copyPrompt").onclick=()=>copyText($("#promptText").textContent,"Prompt copied");
+async function copyText(txt,msg){ try{ await navigator.clipboard.writeText(txt); toast(msg); }catch(e){ const ta=document.createElement("textarea"); ta.value=txt; document.body.append(ta); ta.select(); toast("Press Ctrl+C / ⌘C to copy"); setTimeout(()=>ta.remove(),8000); } }
+
+/* ---------- import ---------- */
+let IMP=null;
+function openImport(){ IMP=null; $("#impOpts").hidden=true; $("#impGo").disabled=true; $("#fileIn").value=""; $("#dlgImport").showModal(); }
+const drop=$("#drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+$("#fileIn").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) readFile(f); });
+async function readFile(file){
+  try{
+    if(/\.json$/i.test(file.name)){ const j=JSON.parse(await file.text()); const list=Array.isArray(j.cookbooks)?j.cookbooks:[j];
+      let n=0; for(const b of list){ if(!b||!b.fields||!b.meta) continue; const ex=S.books.get(b.id);
+        if(!b.id||(ex&&(ex.updated||0)>(b.updated||0))) b.id=uid(); b.updated=Date.now(); S.books.set(b.id,b); S.cur=b.id; touch(b); n++; }
+      if(!n) throw new Error("not a Cookbook Studio file"); $("#dlgImport").close(); toast(n>1?`${n} cookbooks restored`:"Cookbook imported"); render(); return; }
+    if(typeof XLSX==="undefined") throw new Error("Spreadsheet reader did not load");
+    const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
+    IMP={wb,name:file.name};
+    $("#impSheet").innerHTML=wb.SheetNames.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join("");
+    const best=wb.SheetNames.findIndex(n=>detect(sheetAOA(wb,n)).mode==="cookbook");
+    $("#impSheet").value=String(Math.max(0,best));
+    const b=book();
+    $("#impTarget").innerHTML=`<option value="new">A new cookbook</option>${b?`<option value="cur">${esc(b.meta.report||"Current cookbook")} (open now)</option>`:""}`;
+    $("#impOpts").hidden=false; onSheet();
+  }catch(err){ toast("Could not read that file: "+(err.message||"unknown error")); }
+}
+function sheetAOA(wb,n){
+  const cell=v=>typeof v==="number"?(Number.isInteger(v)?BigInt(v).toString():String(v)):v instanceof Date?v.toISOString().slice(0,10):v==null?"":String(v);
+  return XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:"",raw:true,blankrows:false}).map(r=>r.map(cell)).filter(r=>r.some(c=>c.trim()));
+}
+const HDR=[["local",/local|langu|πεδ/i],["english",/english/i],["section",/position|section|record type|registration/i],["mand",/mandatory|optional|required/i],["purpose",/purpose|description|definition|meaning/i],["length",/^length|len\b|size/i],["format",/format|type of data/i],["example",/example|sample/i],["table",/table/i],["code",/field\s*code|^code$/i],["name",/field\s*name/i],["values",/^values?$|allowed/i],["logic",/logic|calculation|rule/i]];
+function detect(aoa){
+  for(let r=0;r<Math.min(8,aoa.length);r++){
+    const row=aoa[r].map(x=>String(x).trim()); const map={}; let hits=0;
+    row.forEach((h,ci)=>{ if(!h) return; for(const [k,rx] of HDR){ if(map[k]===undefined && rx.test(h)){ if(k==="local"&&/english/i.test(h)) continue; if(k==="code"&&/table|name/i.test(h)) continue; map[k]=ci; hits++; break; } } });
+    if(row.some(h=>/component/i.test(h)) && row.some(h=>/employee|employer|contribution/i.test(h))) return {mode:"components",row:r};
+    if(hits>=4 && (map.local!==undefined||map.english!==undefined)) return {mode:"cookbook",row:r,map};
+  }
+  return {mode:"sample",row:aoa.findIndex(r=>r.some(c=>String(c).trim()))};
+}
+function onSheet(){ const n=IMP.wb.SheetNames[+$("#impSheet").value]; const aoa=sheetAOA(IMP.wb,n); const d=detect(aoa); IMP.aoa=aoa; IMP.det=d; IMP.sheet=n; $("#impMode").value=d.mode; preview(); }
+$("#impSheet").onchange=onSheet; $("#impMode").onchange=preview;
+function parsed(){
+  const mode=$("#impMode").value, aoa=IMP.aoa, d=IMP.det;
+  if(mode==="components"){ const start=(d.mode==="components"?d.row:0)+1; return {components:aoa.slice(start).filter(r=>String(r[0]).trim()).map(r=>({code:r[0]||"",base:r[1]||"",ee:r[2]||"",er:r[3]||"",source:r[4]||""}))}; }
+  if(mode==="sample"){ const hr=aoa[Math.max(0,d.row)]||[]; return {fields:hr.map(h=>String(h).trim()).filter(Boolean).map(h=>newField({local:h,section:IMP.sheet}))}; }
+  const map=d.map||{}; const out=[];
+  for(const r of aoa.slice(d.row+1)){
+    const g=k=>map[k]===undefined?"":String(r[map[k]]??"").trim();
+    const local=g("local"), english=cleanFormula(g("english"));
+    if(!local && !(english && (g("length")||g("format")))) continue;
+    out.push(newField({local,english,section:g("section").replace(/^["“]+|["”]+$/g,"").replace(/"/g,"").trim(),mand:normMand(g("mand")),purpose:g("purpose"),length:g("length"),format:g("format"),example:"",table:g("table"),code:g("code"),name:g("name"),values:g("values"),logic:g("logic"),status:"Draft"}));
+  }
+  return {fields:out, examplesDropped:true};
+}
+function cleanFormula(s){ const m=String(s).match(/,"([^"]*)"\)\s*$/); return m?m[1]:s; }
+function normMand(m){ const s=m.toLowerCase(); return s.startsWith("m")?"Mandatory":s.startsWith("o")?"Optional":s.startsWith("c")?"Conditional":m; }
+function preview(){ const p=parsed(); const n=(p.fields||p.components||[]).length;
+  const secs=p.fields?new Set(p.fields.map(f=>f.section)).size:0;
+  $("#impPreview").textContent=n?`Found ${n} ${p.components?"component rows":"fields"}${secs>1?` in ${secs} sections`:""}. Example values are not imported, so no real records are copied.`:"Nothing recognisable on this sheet. Try another sheet or mode.";
+  $("#impGo").disabled=!n; }
+$("#impGo").onclick=()=>{
+  const p=parsed(); let b;
+  if($("#impTarget").value==="cur" && book()) b=book();
+  else { const base=IMP.name.replace(/\.[^.]+$/,"").replace(/[_]+/g," "); b=newBook({report:base,type:"fixed"}); S.books.set(b.id,b); }
+  if(p.fields) b.fields.push(...p.fields); if(p.components) b.components.push(...p.components);
+  if(p.fields && !b.fields.some(f=>f.length)) b.meta.type="excel";
+  if($("#impMode").value==="cookbook" && !b.components.length){
+    for(const n of IMP.wb.SheetNames){ const aoa=sheetAOA(IMP.wb,n), d=detect(aoa); if(d.mode!=="components") continue;
+      b.components.push(...aoa.slice(d.row+1).filter(r=>String(r[0]).trim()).map(r=>({code:r[0]||"",base:r[1]||"",ee:r[2]||"",er:r[3]||"",source:r[4]||""}))); break; }
+  }
+  S.cur=b.id; S.sel=null; S.tab=p.components?"components":"fields"; touch(b); $("#dlgImport").close(); toast("Imported"); render();
+};
+
+/* ---------- Claude drafting ---------- */
+let draftCtl=null;
+function draftPrompt(b, fs){
+  const v=vocab().triples.slice(0,160);
+  return `You are a payroll compliance research analyst preparing a statutory report "cookbook" (a field-by-field guide a payroll processor uses to build the report).
+
+Report: ${b.meta.report||"(unnamed)"}
+Country / region: ${b.meta.country||"(not set)"}
+Authority: ${b.meta.authority||"(not set)"}
+Filing frequency: ${b.meta.frequency||"(not set)"}
+File type: ${TYPES[b.meta.type]||b.meta.type}
+
+Format notation: 9 = digits, A = uppercase letters, X = alphanumeric, V = implied decimal (not written), X(50) = 50 chars of X, dates as a pattern like DDMMYYYY.
+
+Payroll data fields already used in this organisation's other cookbooks (table | field code | field name). Map to one of these when it clearly fits, otherwise leave the mapping empty:
+${v.length?v.join("\n"):"(none yet)"}
+
+Headers to draft (keep the same order and ids):
+${JSON.stringify(fs.map(f=>({id:f.id,local:f.local,english:f.english,section:f.section,length:f.length,format:f.format})))}
+
+For each header return an object:
+{"id": same id, "english": English name, "purpose": 1-2 plain-English sentences, "mand": "Mandatory" | "Optional" | "Conditional (state the condition in logic)", "length": number or null, "format": format in the notation above, "values": allowed values or codes, "" if free, "logic": short step-by-step rule to populate it from payroll data, "table": "", "code": "", "name": "", "confidence": "High" | "Medium" | "Low", "note": what the processor must verify in the official specification}
+
+Rules: never invent official code lists, rates or thresholds; if unsure, leave values empty, set confidence Low and say what to check in note. Keep an existing length/format unless it is clearly inconsistent, and if so explain in note. Use "Static" as table for constant values.
+Reply with only a JSON array.`;
+}
+function applyDraft(b, res, overwrite){
+  let n=0;
+  for(const r of (Array.isArray(res)?res:[])){ const f=b.fields.find(x=>x.id===r?.id); if(!f) continue; n++;
+    for(const k of ["english","purpose","mand","format","values","logic","table","code","name","confidence","note"]){ const val=r[k]==null?"":String(r[k]); if(val && (overwrite||!f[k])) f[k]=val; }
+    if(r.length!=null && r.length!=="" && (overwrite||!f.length)) f.length=String(r.length);
+    if(f.status==="Draft") f.status="AI draft"; }
+  return n;
+}
+async function draftFields(b, fs, overwrite){
+  if(!S.sample||!fs.length) return;
+  const isOne=fs.length===1, out=isOne?$("#oneOut"):null;
+  const chunks=[]; for(let i=0;i<fs.length;i+=12) chunks.push(fs.slice(i,i+12));
+  draftCtl=new AbortController(); const ctl=draftCtl;
+  const bulk=$("#bulk");
+  const showBulk=(msg)=>{ if(!isOne&&bulk) bulk.innerHTML=`<div class="note row" style="justify-content:space-between"><span>${esc(msg)}</span><button class="btn sm" type="button" id="stopDraft">Stop</button></div>`; const sb=$("#stopDraft"); if(sb) sb.onclick=()=>ctl.abort(); };
+  let done=0, failed=null;
+  for(const ch of chunks){
+    if(ctl.signal.aborted) break;
+    if(isOne) out.textContent="Thinking…"; else showBulk(`Claude is drafting ${done+1}–${done+ch.length} of ${fs.length}… This can take a minute per batch.`);
+    try{
+      const res=await S.sample.json(draftPrompt(b,ch),{signal:ctl.signal});
+      if(!Array.isArray(res)) throw {code:"invalid_json"};
+      applyDraft(b,res,overwrite);
+      done+=ch.length; touch(b);
+      if(!isOne){ render(); }
+    }catch(e){ failed=e; break; }
+  }
+  if(failed && failed.code!=="cancelled"){
+    const msg={auth:"The API key was rejected. Check it in Settings.",network:"Could not reach the Anthropic API from this network. Use “Draft by copy & paste” instead.",not_granted:"Claude was not allowed for this page.",rate_limited:"Too many requests. Wait a minute and try again.",invalid_json:"Claude's answer could not be read. Try again with fewer fields.",sampling_disabled:"Claude is not available for this account."}[failed.code]||"Drafting stopped because of a connection problem. Try again.";
+    if(isOne) out.textContent=msg; else toast(msg);
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled"].includes(failed.code) && !S.standalone) S.sample=null;
+  }
+  if(!isOne){ render(); if(done) toast(`${done} fields drafted. Verify them against the official specification.`); }
+  else if(!failed){ render(); }
+}
+
+/* ---------- export ---------- */
+const HEAD13=["Header name in local language","Header name in English","Position within the file","Mandatory/Optional","Purpose of the header","LENGTH","FORMAT","Example values","Field Mapping (Table name)","Field Code","Field Name","Values","Logics"];
+function toAOA(b){ return [HEAD13, ...b.fields.map(f=>[f.local,f.english,f.section,f.mand,f.purpose,f.length===""?"":(+f.length||f.length),f.format,f.example,f.table,f.code,f.name,f.values,f.logic])]; }
+function fileBase(b){ return ((b.meta.country?b.meta.country+" ":"")+(b.meta.report||"cookbook")+" Cookbook v"+(b.meta.version||"1")).replace(/[\\/:*?"<>|]+/g,"-").replace(/\s+/g,"_"); }
+function exportXlsx(b){
+  if(typeof XLSX==="undefined"){ toast("Spreadsheet library did not load"); return; }
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(toAOA(b)); ws["!cols"]=[30,28,30,14,44,8,14,16,22,26,26,30,44].map(w=>({wch:w})); ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(1,b.fields.length),c:12}})};
+  XLSX.utils.book_append_sheet(wb,ws,(b.meta.report||"Report").slice(0,31).replace(/[\\/?*[\]:]/g," "));
+  const cs=XLSX.utils.aoa_to_sheet([["Component Code","Base field (Monthly Earning)","Employee Contribution","Employer Contribution","Source"],...b.components.map(c=>[c.code,c.base,c.ee,c.er,c.source])]); cs["!cols"]=[28,32,36,36,16].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,cs,"Pay Components");
+  const {pos,tot}=positions(b); const lay=[]; let last=null;
+  b.fields.forEach((f,i)=>{ const k=f.section||"—"; if(k!==last){ if(last!==null){ lay.push(["RECORD LENGTH","",tot[last]||"","",""]); lay.push([]);} lay.push([k]); lay.push(["#","FIELD","LENGTH","FORMAT","POSITION"]); last=k; }
+    lay.push([i+1,f.english||f.local,f.length,f.format,pos[f.id]?pos[f.id][0]+"–"+pos[f.id][1]:""]); });
+  if(last!==null) lay.push(["RECORD LENGTH","",tot[last]||"","",""]);
+  const ls=XLSX.utils.aoa_to_sheet(lay); ls["!cols"]=[16,44,10,18,12].map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb,ls,"Record Layout");
+  const st=XLSX.utils.aoa_to_sheet([["#","Header","Status","Confidence","Official reference","Notes"],...b.fields.map((f,i)=>[i+1,f.local||f.english,f.status,f.confidence,f.reference,f.note])]); st["!cols"]=[5,36,12,12,50,50].map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb,st,"Review Status");
+  const lg=XLSX.utils.aoa_to_sheet([["Notation","Meaning"],["9","Field accepts digits only (0-9)"],["A","Field accepts uppercase alphabetic characters"],["X","Field accepts letters and digits"],["V","Implied decimal point; not written in the file"],["X(n)","n characters of type X"],["",""],["Report",b.meta.report],["Country",b.meta.country],["Authority",b.meta.authority],["Frequency",b.meta.frequency],["File type",TYPES[b.meta.type]],["Version",b.meta.version],["Exported",new Date().toISOString().slice(0,10)]]); lg["!cols"]=[14,60].map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb,lg,"Format Legend");
+  const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+  saveFile(fileBase(b)+".xlsx", new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+}
+async function saveFile(name,data){
+  if(!S.downloads){ toast("Downloads are not available in this view. Use “Copy table” instead."); return; }
+  try{ await S.downloads.save({filename:name,data}); toast("Saved "+name); }
+  catch(e){ if(e.code==="declined") return; toast(e.code==="rate_limited"?"A save is already waiting for your answer":"Could not save the file here"); }
+}
+function researchPrompt(b){
+  return `# ROLE
+You are a payroll compliance research analyst. Research every header in a statutory payroll report and produce a reference guide a Payroll Processor can use to prepare it correctly.
+
+# INPUTS
+- Country / State: ${b.meta.country||"[fill in]"}
+- Statutory report name: ${b.meta.report||"[fill in]"}
+- Authority: ${b.meta.authority||"[fill in]"}
+- Filing frequency: ${b.meta.frequency||"[fill in]"}
+- File type: ${TYPES[b.meta.type]}
+- Draft cookbook: attached (${fileBase(b)}.xlsx, ${b.fields.length} headers in ${sections(b).length} sections)
+
+# CONFIDENTIALITY
+Never write real company names, employee names, IDs, bank details or salaries. Use placeholders ("Company A", "Employee 001"). Describe headers, logic and structure only.
+
+# TASK
+1. Find the CURRENT official file specification / lodgement guide from the authority. Note its version and effective date.
+2. For every header in the attached cookbook, verify and complete: definition, Mandatory/Optional/Conditional (with condition), data type & format (length, decimals, allowed values/codes), source payroll data, step-by-step calculation logic incl. thresholds, rates, caps and effective dates, inclusions/exclusions, validation checks, common errors, official reference (URL + section), confidence (High/Medium/Low).
+3. Flag every place where the draft cookbook disagrees with the official source (length vs format, code lists, date formats, record lengths, mapping logic).
+4. Map each header to the cookbook's source fields; flag missing sources as "GAP" and unclear treatment as "NEEDS CLIENT CONFIRMATION".
+
+# OUTPUTS (./output/)
+- header_dictionary.xlsx (sheets: Header Dictionary, Data Mapping, Rates & Thresholds, Validation Checklist, Sources) with a bold frozen header row, wrapped text and filters.
+- processor_guide.md and open_questions.md.
+
+# RULES
+Never invent a rule, rate or threshold. Prefer official government sources; use secondary sources only to support. Always state effective dates. Document state/region/employer-type variants separately. Re-check that every header has a row before finishing, then summarise: headers researched, confidence counts, mapping gaps, top 3 open questions.`;
+}
+
+/* ---------- standalone mode (regular website, no Claude host) ---------- */
+const LS={get(k,d=""){ try{ return localStorage.getItem(k) ?? d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }, del(k){ try{ localStorage.removeItem(k);}catch(e){} }};
+function parseLooseJSON(t){
+  t=String(t||"").trim();
+  try{ return JSON.parse(t); }catch(_){}
+  const fence=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(fence){ try{ return JSON.parse(fence[1]); }catch(_){} }
+  const a=t.indexOf("["), b=t.lastIndexOf("]"); if(a>=0&&b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(_){} }
+  throw {code:"invalid_json"};
+}
+async function apiJson(prompt,{signal}={}){
+  const key=LS.get("cbs:apikey"); if(!key) throw {code:"auth"};
+  let r;
+  try{ r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:LS.get("cbs:model","claude-sonnet-5-5"),max_tokens:8000,messages:[{role:"user",content:prompt}]})}); }
+  catch(e){ throw {code: e?.name==="AbortError"?"cancelled":"network"}; }
+  if(r.status===401||r.status===403) throw {code:"auth"};
+  if(r.status===429) throw {code:"rate_limited"};
+  if(!r.ok) throw {code:"upstream_error"};
+  const j=await r.json(); return parseLooseJSON((j.content||[]).filter(x=>x.type==="text").map(x=>x.text).join(""));
+}
+function setupStandalone(){
+  S.standalone=true;
+  S.downloads={ async save({filename,data}){ const blob=data instanceof Blob?data:new Blob([data]); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); return {status:"saved"}; } };
+  S.sample = LS.get("cbs:apikey") ? {json:apiJson} : null;
+  $("#settingsBtn").hidden=false; $("#backupRow").hidden=false;
+}
+$("#settingsBtn").onclick=()=>{ $("#setKey").value=LS.get("cbs:apikey"); $("#setModel").value=LS.get("cbs:model","claude-sonnet-5-5"); $("#dlgSettings").showModal(); };
+$("#setSave").onclick=()=>{ const k=$("#setKey").value.trim(); if(k) LS.set("cbs:apikey",k); else LS.del("cbs:apikey"); LS.set("cbs:model",$("#setModel").value); S.sample=k?{json:apiJson}:null; $("#dlgSettings").close(); toast(k?"Claude drafting is on":"Claude drafting is off — use copy & paste"); render(); };
+$("#backupAll").onclick=()=>{ const all={cookbooks:[...S.books.values()],exported:new Date().toISOString()}; S.downloads.save({filename:"cookbook-studio-backup-"+new Date().toISOString().slice(0,10)+".json",data:JSON.stringify(all,null,2)}); };
+let MANUAL=null;
+function openManual(b, fs){
+  fs=fs.slice(0,15); MANUAL={b,fs};
+  $("#manPrompt").textContent=draftPrompt(b,fs); $("#manReply").value=""; $("#manInfo").textContent=`${fs.length} field${fs.length>1?"s":""} in this round.`;
+  $("#dlgManual").showModal();
+}
+$("#manCopy").onclick=()=>copyText($("#manPrompt").textContent,"Prompt copied — paste it into Claude");
+$("#manApply").onclick=()=>{ try{ const res=parseLooseJSON($("#manReply").value); const n=applyDraft(MANUAL.b,res,MANUAL.fs.length===1); if(!n) throw 0; touch(MANUAL.b); $("#dlgManual").close(); toast(`${n} fields updated. Verify them against the official specification.`); render(); }catch(e){ toast("Could not read that reply. Paste Claude's whole answer (the JSON array)."); } };
+
+/* ---------- boot ---------- */
+async function boot(){
+  render();
+  const c=window.claude;
+  const [db,user,sample,downloads]= c?.use ? await Promise.all(["db","user","sample","downloads"].map(n=>c.use(n).catch(()=>null))) : [null,null,null,null];
+  S.sample=sample; S.downloads=downloads; S.user=user;
+  try{ S.me=user? await user.id() : null; }catch(e){}
+  if(!c){ setupStandalone(); }
+  if(!db){ S.local=true; loadLocal(); setStatus(S.standalone?"Saved in this browser":"Saved in this browser only"); render(); return; }
+  S.db=db;
+  let first=true; const timer=setTimeout(()=>{ if(first) setStatus("Can't reach saved cookbooks yet",true); },10000);
+  db.collection("cookbooks").onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){ clearTimeout(timer); }
+    const keep=new Set();
+    for(const d of snap.docs){ const v=d.data(); if(!v||!v.meta) continue; keep.add(d.id);
+      const mine=S.books.get(d.id);
+      if(pending.has(d.id)) continue;
+      if(mine && (mine.updated||0)>=(v.updated||0)) continue;
+      S.books.set(d.id, JSON.parse(JSON.stringify(v))); }
+    for(const id of [...S.books.keys()]) if(!keep.has(id) && !pending.has(id)) { S.books.delete(id); if(S.cur===id){S.cur=null;S.sel=null;} }
+    if(first){ first=false; setStatus(S.books.size?"All changes saved":"Ready"); }
+    const act=document.activeElement;
+    if(act && (act.closest?.(".detail")||act.closest?.("dialog")||act.matches?.("input,textarea"))) { renderLib(); return; }
+    render();
+  }, err=>{ clearTimeout(timer); setStatus(err.code==="revoked"?"Access to saved cookbooks ended":"Saved cookbooks unavailable",true); });
+}
+boot();
+</script>
+</body></html>
