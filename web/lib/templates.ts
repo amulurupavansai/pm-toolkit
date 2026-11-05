@@ -26,7 +26,7 @@ export type Template = {
   searchText: string;
 };
 
-const ROOT = path.join(process.cwd(), '..', 'templates');
+const ROOT = path.join(process.cwd(), 'templates');
 const FENCE_OPEN = /^\s*(`{3,}|~{3,})/;
 
 function isCloser(line: string, open: string) {

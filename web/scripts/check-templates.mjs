@@ -2,12 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import matter from 'gray-matter';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..', 'templates');
-const require = createRequire(path.join(here, '..', 'web', 'package.json'));
-const matter = require('gray-matter');
 
 const CATEGORIES = ['requirements', 'process', 'testing', 'delivery', 'communication', 'governance', 'prompts'];
 const errors = [];
